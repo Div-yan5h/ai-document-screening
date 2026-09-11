@@ -1,0 +1,1 @@
+# Schemas package — Pydantic contracts (source of truth)
