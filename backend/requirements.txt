@@ -3,3 +3,5 @@
 pydantic>=2.0
 fastapi>=0.100.0
 uvicorn>=0.23.0
+opencv-python>=4.8.0   # required by m4_mrz (MRZ crop) and m6_tamper (ELA/copy-move/font signals)
+pytesseract>=0.3.10    # required by m4_mrz (MRZ OCR pass)
