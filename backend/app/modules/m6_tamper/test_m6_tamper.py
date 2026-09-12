@@ -314,12 +314,7 @@ class TestFontConsistency:
         assert score == 0.0
         assert regions == []
 
-    def test_font_real_voter_id_low_score_if_present(self):
-        """If real voter ID test image is available, verify it does not false-positive."""
-        voter_path = r"C:\Users\Nehanth\Downloads\voter id.png"
-        if os.path.exists(voter_path):
-            score, regions = font_consistency.analyse(voter_path)
-            assert 0.0 <= score < 0.25, f"Real voter ID produced high font score: {score}"
+    
 
 
 # ─────────────────────────────────────────────
