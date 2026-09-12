@@ -55,15 +55,19 @@ def preprocess_document(image_path: str, output_path: str) -> bool:
             # Select the largest relevant contour
             largest_contour = max(contours, key=cv2.contourArea)
             
-            # minAreaRect
+            # minAreaRect — compute skew angle directly from box geometry,
+            # independent of OpenCV version's angle-sign convention
             rect = cv2.minAreaRect(largest_contour)
-            angle = rect[-1]
-            
-            # Handle OpenCV angle convention correctly
+            box = cv2.boxPoints(rect)
+
+            edge1 = box[1] - box[0]
+            edge2 = box[2] - box[1]
+            edge = edge1 if np.linalg.norm(edge1) > np.linalg.norm(edge2) else edge2
+
+            angle = np.degrees(np.arctan2(edge[1], edge[0]))
+            angle = angle % 90
             if angle > 45:
-                angle = angle - 90
-            elif angle < -45:
-                angle = angle + 90
+                angle -= 90
                 
             # Rotate with cv2.warpAffine
             (h, w) = gray.shape[:2]
