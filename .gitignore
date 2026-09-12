@@ -69,3 +69,9 @@ logs/
 
 # MongoDB
 mongod.lock
+
+# Runtime test artifacts
+dummy_doc.jpg
+dummy_live.jpg
+corrupt_doc.jpg
+storage/
