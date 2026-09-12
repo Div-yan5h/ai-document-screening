@@ -1,28 +1,28 @@
 """
-M7 — Face Verification (STUB)
+M7 — Face Verification Handler
 ==============================
-Walking skeleton stub. Returns mock FaceVerificationOutput.
-Real implementation will: detect faces, generate embeddings, compute similarity.
+Pipeline handler for the M7 face verification module.
+Acts as a thin wrapper delegating execution to the M7 service layer.
 
-Owner: P4
+Owner: P4 (Identity & Records)
 """
 
+from backend.app.modules.m7_face.service import verify_faces
 from backend.app.schemas.contracts import FaceVerificationOutput, IngestionOutput
 
 
 def run(ingestion_out: IngestionOutput) -> FaceVerificationOutput:
     """
-    STUB: Returns mock FaceVerificationOutput.
+    Run M7 Face Verification for the current screening session.
 
-    Real implementation will:
-    - Detect/crop face from doc photo (RetinaFace/MTCNN)
-    - Detect/crop face from live photo
-    - Generate embeddings (ArcFace/InsightFace)
-    - Compute cosine similarity
-    - Map to match bands
+    Delegates image loading, face detection, embedding extraction,
+    and similarity scoring to verify_faces() in service.py.
+
+    Args:
+        ingestion_out: IngestionOutput contract containing doc_image_path and live_photo_path.
+
+    Returns:
+        FaceVerificationOutput contract (similarity, match_band, liveness_passed).
     """
-    return FaceVerificationOutput(
-        similarity=0.0,                           # STUB: zero similarity
-        match_band="review",                      # STUB: default to review
-        liveness_passed=None,                     # STUB: not implemented
-    )
+    return verify_faces(ingestion_out)
+

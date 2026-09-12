@@ -1,25 +1,22 @@
 """
-M8 — DB / Blacklist Check (STUB)
+M8 — DB / Blacklist Check Handler
 =================================
-Walking skeleton stub. Returns mock DBCheckOutput.
-Real implementation will: query MongoDB by doc_number.
+Pipeline handler for the M8 database / blacklist check module.
+Acts as a thin wrapper delegating execution to the M8 service layer.
 
-Owner: P4
+Owner: P4 (Identity & Records)
 """
 
+from backend.app.modules.m8_db.service import check_database
 from backend.app.schemas.contracts import DBCheckOutput, MRZOutput, OCROutput
 
 
 def run(mrz_out: MRZOutput, ocr_out: OCROutput) -> DBCheckOutput:
     """
-    STUB: Returns mock DBCheckOutput.
+    Run the M8 DB / Blacklist check for the current screening session.
 
-    Real implementation will:
-    - Pick doc_number: prefer MRZ value if checksum valid, else OCR value
-    - Query MongoDB collection by doc_number
-    - Return status from record, or "not_found" / "db_unavailable"
+    Delegates document number resolution, normalization, and MongoDB lookup
+    to check_database() in service.py.
     """
-    return DBCheckOutput(
-        status="not_found",                       # STUB: no real DB to query
-        record_meta=None,                         # STUB: no record metadata
-    )
+    return check_database(mrz_out, ocr_out)
+
