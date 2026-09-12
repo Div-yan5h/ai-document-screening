@@ -25,7 +25,7 @@ def detect_text_regions(gray: np.ndarray) -> List[Tuple[int, int, int, int]]:
 
     Strategy:
       1. Otsu-threshold the grayscale image.
-      2. MORPH_CLOSE with a wide horizontal kernel (15×5) to merge
+      2. MORPH_CLOSE with a wide horizontal kernel (25×5) to merge
          individual glyphs into word/line blobs.
       3. Find connected components.
       4. Keep only those whose height is roughly 6–15 % of the image
@@ -45,7 +45,7 @@ def detect_text_regions(gray: np.ndarray) -> List[Tuple[int, int, int, int]]:
     _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
 
     # Horizontal close to merge glyphs into word/line blobs
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 5))
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25, 5))
     closed = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
 
     # Find connected components

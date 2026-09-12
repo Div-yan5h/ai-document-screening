@@ -43,6 +43,8 @@ from typing import List, Tuple
 import cv2
 import numpy as np
 
+from backend.app.modules.m6_tamper.text_mask import build_text_mask
+
 logger = logging.getLogger(__name__)
 
 # ─── Tunable Calibration Constants ────────────────
@@ -218,6 +220,16 @@ def _analyse_impl(image_path: str) -> Tuple[float, List[List[int]]]:
     if len(glyphs) < _MIN_GLYPH_REGIONS:
         return 0.0, []
 
+    # Filter glyphs using shared text_mask to exclude non-text regions (photos, seals, logos)
+    text_mask = build_text_mask(img, dilate_px=4)
+    glyphs = [
+        g for g in glyphs
+        if text_mask[
+            min(max(0, int(g[1] + g[3] / 2.0)), h - 1),
+            min(max(0, int(g[0] + g[2] / 2.0)), w - 1),
+        ]
+    ]
+
     lines = _group_glyphs_into_lines(glyphs)
     valid_lines = [l for l in lines if len(l) >= _MIN_LINE_GLYPHS]
 
@@ -236,7 +248,21 @@ def _analyse_impl(image_path: str) -> Tuple[float, List[List[int]]]:
         hs = np.array([g[3] for g in l], dtype=np.float64)
         m = float(hs.mean())
         s = float(hs.std())
-        cv_val = s / m if m > 0 else 0.0
+
+        # Robust statistics: trim outlier heights (outside 10th–90th percentile)
+        # so isolated odd-sized artifacts (diacritics/specks) cannot dominate the score
+        if len(hs) >= 4:
+            p10, p90 = np.percentile(hs, [10, 90])
+            trimmed_hs = hs[(hs >= p10) & (hs <= p90)]
+            if len(trimmed_hs) >= 2:
+                m_score = float(trimmed_hs.mean())
+                s_score = float(trimmed_hs.std())
+            else:
+                m_score, s_score = m, s
+        else:
+            m_score, s_score = m, s
+
+        cv_val = s_score / m_score if m_score > 0 else 0.0
 
         line_cvs.append(cv_val)
         line_weights.append(len(l))
