@@ -62,10 +62,10 @@ def run(
     # ── 2. Weights (must sum to 1.0) ────────────────────────────────
 
     weights = {
-        "blacklist_hit": 0.30,
-        "expired": 0.20,
-        "ocr_mrz_mismatch": 0.15,
-        "face_mismatch": 0.20,
+        "blacklist_hit": 0.25,
+        "expired": 0.15,
+        "ocr_mrz_mismatch": 0.10,
+        "face_mismatch": 0.35,
         "tamper_suspicion": 0.10,
         "low_ocr_confidence": 0.05,
     }
