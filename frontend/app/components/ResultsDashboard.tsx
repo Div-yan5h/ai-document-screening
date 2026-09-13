@@ -11,10 +11,13 @@ import {
   Scan,
   UserCheck,
   Database,
-  Search,
   ChevronDown,
   ChevronUp,
   Fingerprint,
+  Scale,
+  Check,
+  Ban,
+  Clock
 } from 'lucide-react';
 import * as Progress from '@radix-ui/react-progress';
 
@@ -25,91 +28,61 @@ interface ResultsDashboardProps {
 export default function ResultsDashboard({ result }: ResultsDashboardProps) {
   const [showRawText, setShowRawText] = useState(false);
 
-  // Safe destructuring with fallbacks for null/undefined resilience
-  const risk = result?.risk || {
-    risk_score: 0,
-    risk_band: 'unknown',
-    reasons: [],
-    contributions: {},
-  };
-  const classifier = result?.classifier || {
-    doc_type: 'unknown',
-    doc_type_confidence: 0,
-    doc_bbox: null,
-  };
-  const ocr = result?.ocr || {
-    fields: {},
-    field_confidences: {},
-    raw_text: '',
-  };
-  const mrz = result?.mrz || {
-    mrz_present: false,
-    mrz_fields: {},
-    checksum_valid: false,
-    cross_check: {},
-  };
-  const rules = result?.rules || {
-    is_expired: false,
-    format_valid: false,
-    logic_valid: false,
-    flags: [],
-  };
-  const tamper = result?.tamper || {
-    suspicion_score: 0,
-    flagged_regions: [],
-    signals: {},
-  };
-  const face = result?.face || {
-    similarity: 0,
-    match_band: 'unknown',
-    liveness_passed: null,
-  };
-  const db = result?.db || {
-    status: 'unknown',
-    record_meta: null,
-  };
+  // Safe destructuring
+  const risk = result?.risk || { risk_score: 0, risk_band: 'unknown', reasons: [], contributions: {} };
+  const classifier = result?.classifier || { doc_type: 'unknown', doc_type_confidence: 0, doc_bbox: null };
+  const ocr = result?.ocr || { fields: {}, field_confidences: {}, raw_text: '' };
+  const mrz = result?.mrz || { mrz_present: false, mrz_fields: {}, checksum_valid: false, cross_check: {} };
+  const rules = result?.rules || { is_expired: false, format_valid: false, logic_valid: false, flags: [] };
+  const tamper = result?.tamper || { suspicion_score: 0, flagged_regions: [], signals: {} };
+  const face = result?.face || { similarity: 0, match_band: 'unknown', liveness_passed: null };
+  const db = result?.db || { status: 'unknown', record_meta: null };
 
   const riskBand = (risk.risk_band || 'unknown').toLowerCase();
   const tamperSuspected = (tamper.suspicion_score || 0) >= 0.5;
 
-  // Risk styling
+  // Professional Workstation Colors
   const getRiskColor = (band: string) => {
     switch (band) {
-      case 'low':
-        return 'text-green-800 bg-green-50 border-green-200';
-      case 'medium':
-        return 'text-yellow-800 bg-yellow-50 border-yellow-200';
-      case 'high':
-        return 'text-red-800 bg-red-50 border-red-200';
-      default:
-        return 'text-gray-800 bg-gray-50 border-gray-200';
+      case 'low': return 'text-emerald-400 bg-emerald-950/20 border-emerald-900/50';
+      case 'medium': return 'text-amber-400 bg-amber-950/20 border-amber-900/50';
+      case 'high': return 'text-red-400 bg-red-950/20 border-red-900/50';
+      default: return 'text-slate-400 bg-slate-900 border-slate-800';
     }
   };
 
   const getRiskProgressColor = (band: string) => {
     switch (band) {
-      case 'low':
-        return 'bg-green-500';
-      case 'medium':
-        return 'bg-yellow-500';
-      case 'high':
-        return 'bg-red-500';
-      default:
-        return 'bg-gray-500';
+      case 'low': return 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]';
+      case 'medium': return 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)]';
+      case 'high': return 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.3)]';
+      default: return 'bg-slate-500';
     }
   };
 
-  const getBadgeClass = (status: boolean | null | undefined) => {
+  const getStatusBadge = (status: boolean | null | undefined, passText = 'PASS', failText = 'FAIL') => {
     if (status === true) {
-      return 'bg-green-100 text-green-800 border-green-200';
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-950/50 text-emerald-400 border border-emerald-800/50">
+          <CheckCircle className="w-3 h-3" /> {passText}
+        </span>
+      );
     }
     if (status === false) {
-      return 'bg-red-100 text-red-800 border-red-200';
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-red-950/50 text-red-400 border border-red-800/50">
+          <XCircle className="w-3 h-3" /> {failText}
+        </span>
+      );
     }
-    return 'bg-gray-100 text-gray-700 border-gray-200';
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+        N/A
+      </span>
+    );
   };
 
-  // Known OCR fields to render first with clean labels
+  // Known OCR fields
   const standardOcrKeys: Record<string, string> = {
     doc_number: 'Document Number',
     name: 'Full Name',
@@ -119,560 +92,335 @@ export default function ResultsDashboard({ result }: ResultsDashboardProps) {
     issue_date: 'Issue Date',
   };
 
-  // Extract all OCR field entries
   const allOcrFields = ocr.fields || {};
-  const ocrKeys = Array.from(
-    new Set([...Object.keys(standardOcrKeys), ...Object.keys(allOcrFields)])
-  );
+  const ocrKeys = Array.from(new Set([...Object.keys(standardOcrKeys), ...Object.keys(allOcrFields)]));
 
   return (
-    <div className="w-full max-w-6xl mx-auto p-4 md:p-6 space-y-6">
-      {/* 1. OVERALL RISK HEADER */}
-      <div className={`border-2 rounded-xl p-6 md:p-8 shadow-sm transition-all ${getRiskColor(riskBand)}`}>
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <Shield className="w-8 h-8 text-current" />
-              <h2 className="text-2xl md:text-3xl font-bold">
-                Risk Score: {risk.risk_score ?? 0} / 100
-              </h2>
-            </div>
-            <p className="text-base md:text-lg font-semibold uppercase tracking-wide">
-              {risk.risk_band || 'UNKNOWN'} RISK
-            </p>
-          </div>
-          <div className="text-right hidden md:block">
-            <span className="text-xs font-mono text-gray-500 bg-white/70 px-2.5 py-1 rounded border">
-              ID: {result.session_id ? `${result.session_id.slice(0, 8)}...` : 'N/A'}
-            </span>
-          </div>
+    <div className="w-full mx-auto space-y-6">
+      
+      {/* 1. OFFICER ACTION BAR */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-slate-900 border border-slate-800 rounded-xl shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-sm font-mono text-slate-300">SESSION: {result.session_id || 'N/A'}</span>
         </div>
-
-        {/* Radix Progress Bar */}
-        <Progress.Root className="relative overflow-hidden bg-gray-200 rounded-full w-full h-4 mt-5">
-          <Progress.Indicator
-            className={`h-full transition-transform duration-500 ${getRiskProgressColor(riskBand)}`}
-            style={{ transform: `translateX(-${Math.max(0, 100 - (risk.risk_score || 0))}%)` }}
-          />
-        </Progress.Root>
-
-        {/* Risk Contributions breakdown */}
-        {risk.contributions && Object.keys(risk.contributions).length > 0 && (
-          <div className="mt-5 pt-4 border-t border-black/10">
-            <p className="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">
-              Risk Signal Contributions:
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {Object.entries(risk.contributions).map(([signal, weight]) => (
-                <span
-                  key={signal}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-white/80 border border-black/10 text-gray-700"
-                >
-                  <span className="capitalize">{signal.replace(/_/g, ' ')}:</span>
-                  <span className="font-semibold">{typeof weight === 'number' ? weight.toFixed(3) : String(weight)}</span>
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <button className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-sm font-bold tracking-wide transition-colors">
+            <Check className="w-4 h-4" /> APPROVE
+          </button>
+          <button className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-amber-600/10 hover:bg-amber-600/20 text-amber-400 border border-amber-500/30 rounded-lg text-sm font-bold tracking-wide transition-colors">
+            <Clock className="w-4 h-4" /> ESCALATE
+          </button>
+          <button className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-red-600/10 hover:bg-red-600/20 text-red-400 border border-red-500/30 rounded-lg text-sm font-bold tracking-wide transition-colors">
+            <Ban className="w-4 h-4" /> DENY
+          </button>
+        </div>
       </div>
 
-      {/* TOP RISK REASONS (if any detected) */}
-      {risk.reasons && risk.reasons.length > 0 && risk.reasons[0] !== 'No significant risk factors detected' ? (
-        <div className="border border-red-200 rounded-xl p-5 bg-red-50/80 shadow-sm">
-          <h3 className="text-md font-bold mb-3 flex items-center gap-2 text-red-800">
-            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
-            Identified Risk Factors ({risk.reasons.length})
-          </h3>
-          <ul className="space-y-2">
-            {risk.reasons.map((reason, idx) => (
-              <li key={idx} className="flex items-start gap-2.5 text-sm text-red-900">
-                <XCircle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
-                <span>{reason}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : (
-        <div className="border border-green-200 rounded-xl p-4 bg-green-50/70 shadow-sm flex items-center gap-2.5 text-sm text-green-800">
-          <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
-          <span>No critical risk factors detected during automated screening.</span>
-        </div>
-      )}
-
-      {/* 2. SUMMARY GRID — 4 PILLARS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Module: Classifier */}
-        <div className="border rounded-xl p-4 bg-white shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-gray-500 uppercase flex items-center gap-1.5">
-                <FileText className="w-4 h-4 text-blue-600" />
-                Classification
+      {/* 2. OVERALL RISK SUMMARY */}
+      <div className={`relative overflow-hidden border rounded-xl p-6 sm:p-8 shadow-xl ${getRiskColor(riskBand)}`}>
+        {/* Subtle background glow effect based on risk */}
+        <div className="absolute -right-20 -top-20 w-64 h-64 bg-current opacity-[0.03] rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 relative z-10">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <Shield className="w-6 h-6 opacity-80" />
+              <h2 className="text-sm font-bold tracking-widest uppercase opacity-80">Risk Assessment</h2>
+            </div>
+            <div className="flex items-baseline gap-4 mt-2">
+              <span className="text-6xl md:text-7xl font-bold tracking-tighter">
+                {risk.risk_score ?? 0}
               </span>
-              <span
-                className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
-                  classifier.doc_type && classifier.doc_type !== 'unknown'
-                    ? 'bg-blue-50 text-blue-700 border-blue-200'
-                    : 'bg-gray-100 text-gray-600 border-gray-200'
-                }`}
-              >
-                {classifier.doc_type || 'Unknown'}
+              <span className="text-xl md:text-2xl font-semibold uppercase tracking-widest opacity-90">
+                {risk.risk_band || 'UNKNOWN'}
               </span>
             </div>
-            <p className="text-xl font-bold text-gray-900 capitalize">
-              {classifier.doc_type || 'Unknown'}
-            </p>
           </div>
-          <div className="mt-3 text-xs text-gray-500">
-            Confidence: <span className="font-semibold text-gray-700">{((classifier.doc_type_confidence || 0) * 100).toFixed(1)}%</span>
-            {classifier.doc_bbox && (
-              <span className="block mt-0.5 text-[11px] text-gray-400">
-                BBox: [{classifier.doc_bbox.slice(0, 4).join(', ')}]
-              </span>
+
+          <div className="w-full md:w-1/2 max-w-md space-y-4">
+            <div>
+              <div className="flex justify-between text-xs font-mono mb-1.5 opacity-70">
+                <span>0</span>
+                <span>100</span>
+              </div>
+              <Progress.Root className="relative overflow-hidden bg-black/20 rounded-full w-full h-3 border border-white/5">
+                <Progress.Indicator
+                  className={`h-full transition-transform duration-1000 ease-out ${getRiskProgressColor(riskBand)}`}
+                  style={{ transform: `translateX(-${Math.max(0, 100 - (risk.risk_score || 0))}%)` }}
+                />
+              </Progress.Root>
+            </div>
+            
+            {/* Risk Contributions breakdown */}
+            {risk.contributions && Object.keys(risk.contributions).length > 0 && (
+              <div className="pt-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-2">
+                  Signal Contributions
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(risk.contributions).filter((entry) => (entry[1] as number) > 0).map(([signal, weight]) => (
+                    <div key={signal} className="flex items-center gap-1.5 px-2 py-1 rounded bg-black/10 border border-white/10 text-[11px] font-mono">
+                      <span className="opacity-80">{signal.replace(/_/g, ' ')}:</span>
+                      <span className="font-bold">+{typeof weight === 'number' ? weight.toFixed(3) : String(weight)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>
 
-        {/* Module: Face Verification */}
-        <div className="border rounded-xl p-4 bg-white shadow-sm flex flex-col justify-between">
+        {/* TOP RISK REASONS */}
+        {risk.reasons && risk.reasons.length > 0 && risk.reasons[0] !== 'No significant risk factors detected' && (
+          <div className="mt-6 pt-5 border-t border-current/20 relative z-10">
+            <h3 className="text-xs font-bold uppercase tracking-widest flex items-center gap-2 mb-3 opacity-80">
+              <AlertTriangle className="w-4 h-4" /> Flagged Reasons
+            </h3>
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {risk.reasons.map((reason, idx) => (
+                <li key={idx} className="flex items-start gap-2.5 text-sm bg-black/10 px-3 py-2 rounded-lg border border-white/5">
+                  <XCircle className="w-4 h-4 mt-0.5 shrink-0 opacity-80" />
+                  <span className="opacity-90 leading-snug">{reason}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {/* 3. 5-PILLAR STATUS GRID */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Classification */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-gray-500 uppercase flex items-center gap-1.5">
-                <UserCheck className="w-4 h-4 text-indigo-600" />
-                Face Match
-              </span>
-              <span
-                className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
-                  face.match_band === 'confident_match'
-                    ? 'bg-green-50 text-green-700 border-green-200'
-                    : face.match_band === 'review'
-                    ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
-                    : 'bg-red-50 text-red-700 border-red-200'
-                }`}
-              >
-                {(face.match_band || 'unknown').replace(/_/g, ' ')}
-              </span>
+            <div className="flex items-center gap-2 text-blue-400 mb-3">
+              <FileText className="w-5 h-5" />
+              <h3 className="text-xs font-bold uppercase tracking-widest">Type</h3>
             </div>
-            <p className="text-xl font-bold text-gray-900">
-              {((face.similarity || 0) * 100).toFixed(1)}%
+            <p className="text-lg font-semibold text-slate-100 capitalize">
+              {(classifier.doc_type || 'Unknown').replace(/_/g, ' ')}
             </p>
           </div>
-          <div className="mt-3 text-xs text-gray-500">
-            Liveness:{' '}
-            <span className="font-semibold text-gray-700">
-              {face.liveness_passed === true
-                ? 'Passed'
-                : face.liveness_passed === false
-                ? 'Failed'
-                : 'Not Evaluated'}
+          <div className="mt-4 pt-3 border-t border-slate-800 flex justify-between items-end">
+            <span className="text-[10px] text-slate-500 font-mono uppercase">Confidence</span>
+            <span className="text-sm font-mono text-slate-300">{((classifier.doc_type_confidence || 0) * 100).toFixed(1)}%</span>
+          </div>
+        </div>
+
+        {/* MRZ & Rules */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-indigo-400 mb-3">
+              <Scale className="w-5 h-5" />
+              <h3 className="text-xs font-bold uppercase tracking-widest">Rules</h3>
+            </div>
+            <div className="flex flex-col gap-2">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-slate-400">Format Valid</span>
+                {getStatusBadge(rules.format_valid)}
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-slate-400">Logic Valid</span>
+                {getStatusBadge(rules.logic_valid)}
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 pt-3 border-t border-slate-800 flex justify-between items-end">
+            <span className="text-[10px] text-slate-500 font-mono uppercase">Flags</span>
+            <span className={`text-sm font-mono ${rules.flags?.length ? 'text-amber-400' : 'text-emerald-400'}`}>
+              {rules.flags?.length || 0}
             </span>
           </div>
         </div>
 
-        {/* Module: Tamper Detection */}
-        <div className="border rounded-xl p-4 bg-white shadow-sm flex flex-col justify-between">
+        {/* Tamper */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-gray-500 uppercase flex items-center gap-1.5">
-                <Fingerprint className="w-4 h-4 text-purple-600" />
-                Forensics
-              </span>
-              <span
-                className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
-                  tamperSuspected
-                    ? 'bg-red-50 text-red-700 border-red-200'
-                    : 'bg-green-50 text-green-700 border-green-200'
-                }`}
-              >
-                {tamperSuspected ? 'Suspected' : 'Clear'}
-              </span>
+            <div className="flex items-center gap-2 text-purple-400 mb-3">
+              <Fingerprint className="w-5 h-5" />
+              <h3 className="text-xs font-bold uppercase tracking-widest">Tamper</h3>
             </div>
-            <p className="text-xl font-bold text-gray-900">
-              {((tamper.suspicion_score || 0) * 100).toFixed(1)}%
+            <p className={`text-lg font-semibold ${tamperSuspected ? 'text-red-400' : 'text-emerald-400'}`}>
+              {tamperSuspected ? 'Suspected' : 'Clear'}
             </p>
           </div>
-          <div className="mt-3 text-xs text-gray-500">
-            Regions Flagged:{' '}
-            <span className="font-semibold text-gray-700">
-              {tamper.flagged_regions?.length || 0}
-            </span>
+          <div className="mt-4 pt-3 border-t border-slate-800 flex justify-between items-end">
+            <span className="text-[10px] text-slate-500 font-mono uppercase">Suspicion</span>
+            <span className="text-sm font-mono text-slate-300">{((tamper.suspicion_score || 0) * 100).toFixed(1)}%</span>
           </div>
         </div>
 
-        {/* Module: Database Check */}
-        <div className="border rounded-xl p-4 bg-white shadow-sm flex flex-col justify-between">
+        {/* Face */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-gray-500 uppercase flex items-center gap-1.5">
-                <Database className="w-4 h-4 text-teal-600" />
-                Watchlist / DB
-              </span>
-              <span
-                className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
-                  db.status === 'clean' || db.status === 'not_found'
-                    ? 'bg-green-50 text-green-700 border-green-200'
-                    : 'bg-red-50 text-red-700 border-red-200'
-                }`}
-              >
-                {(db.status || 'unknown').replace(/_/g, ' ')}
-              </span>
+            <div className="flex items-center gap-2 text-cyan-400 mb-3">
+              <UserCheck className="w-5 h-5" />
+              <h3 className="text-xs font-bold uppercase tracking-widest">Face Match</h3>
             </div>
-            <p className="text-xl font-bold text-gray-900 capitalize">
+            <p className={`text-lg font-semibold capitalize ${
+              face.match_band === 'confident_match' ? 'text-emerald-400' : 
+              face.match_band === 'review' ? 'text-amber-400' : 'text-red-400'
+            }`}>
+              {(face.match_band || 'unknown').replace(/_/g, ' ')}
+            </p>
+          </div>
+          <div className="mt-4 pt-3 border-t border-slate-800 flex justify-between items-end">
+            <span className="text-[10px] text-slate-500 font-mono uppercase">Similarity</span>
+            <span className="text-sm font-mono text-slate-300">{((face.similarity || 0) * 100).toFixed(1)}%</span>
+          </div>
+        </div>
+
+        {/* Database */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-teal-400 mb-3">
+              <Database className="w-5 h-5" />
+              <h3 className="text-xs font-bold uppercase tracking-widest">Database</h3>
+            </div>
+            <p className={`text-lg font-semibold capitalize ${
+              db.status === 'clean' || db.status === 'not_found' ? 'text-emerald-400' : 'text-red-400'
+            }`}>
               {(db.status || 'not_found').replace(/_/g, ' ')}
             </p>
           </div>
-          <div className="mt-3 text-xs text-gray-500">
-            Meta Record:{' '}
-            <span className="font-semibold text-gray-700">
-              {db.record_meta ? 'Record Attached' : 'None'}
-            </span>
+          <div className="mt-4 pt-3 border-t border-slate-800 flex justify-between items-end">
+            <span className="text-[10px] text-slate-500 font-mono uppercase">Meta</span>
+            <span className="text-xs font-mono text-slate-400">{db.record_meta ? 'Attached' : 'None'}</span>
           </div>
         </div>
       </div>
 
-      {/* 3. OCR EXTRACTION & DOCUMENT OVERVIEW */}
-      <div className="border rounded-xl p-6 bg-white shadow-sm space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b">
-          <div className="flex items-center gap-2">
-            <Scan className="w-5 h-5 text-blue-600" />
-            <h3 className="text-lg font-bold text-gray-900">OCR Extracted Fields</h3>
+      {/* 4. DETAILS SECTIONS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* OCR EXTRACTION */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-sm space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-slate-200 flex items-center gap-2">
+              <Scan className="w-4 h-4 text-blue-500" /> OCR Data
+            </h3>
+            <button
+              onClick={() => setShowRawText(!showRawText)}
+              className="text-xs font-mono text-blue-400 hover:text-blue-300 flex items-center gap-1"
+            >
+              {showRawText ? 'HIDE RAW' : 'SHOW RAW'} {showRawText ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowRawText(!showRawText)}
-            className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 font-medium px-2.5 py-1 rounded-md border border-blue-200 hover:bg-blue-50 transition"
-          >
-            {showRawText ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            {showRawText ? 'Hide Raw OCR Text' : 'View Raw OCR Text'}
-          </button>
-        </div>
 
-        {/* Fields Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {ocrKeys.map((key) => {
-            const label = standardOcrKeys[key] || key.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
-            const value = allOcrFields[key];
-            const confidence = ocr.field_confidences?.[key];
-            const isExpiry = key === 'expiry_date';
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {ocrKeys.map((key) => {
+              const label = standardOcrKeys[key] || key.replace(/_/g, ' ');
+              const value = allOcrFields[key];
+              const confidence = ocr.field_confidences?.[key];
+              const isLowConf = typeof confidence === 'number' && confidence < 0.7;
 
-            return (
-              <div key={key} className="p-3.5 bg-gray-50/70 rounded-lg border border-gray-200 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-semibold text-gray-500">{label}</span>
+              return (
+                <div key={key} className="bg-slate-950 border border-slate-800 rounded-lg p-3">
+                  <div className="flex justify-between items-center mb-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</span>
                     {typeof confidence === 'number' && (
-                      <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-medium ${
-                          confidence >= 0.8
-                            ? 'bg-green-100 text-green-700'
-                            : confidence >= 0.5
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-gray-100 text-gray-600'
-                        }`}
-                      >
+                      <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${
+                        isLowConf ? 'bg-amber-950/50 text-amber-500 border border-amber-900/50' : 'text-slate-500'
+                      }`}>
                         {(confidence * 100).toFixed(0)}%
                       </span>
                     )}
                   </div>
-                  <p
-                    className={`font-semibold text-sm ${
-                      isExpiry && rules.is_expired ? 'text-red-600' : 'text-gray-900'
-                    }`}
-                  >
-                    {value ? value : <span className="text-gray-400 italic font-normal">Not detected</span>}
+                  <p className={`font-mono text-sm truncate ${isLowConf ? 'text-amber-200' : 'text-slate-200'} ${!value && 'italic opacity-50'}`}>
+                    {value || 'Not Detected'}
                   </p>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+
+          {showRawText && (
+            <div className="mt-4 p-4 bg-black/50 border border-slate-800 rounded-lg">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Raw Buffer</p>
+              <pre className="text-xs font-mono text-slate-400 whitespace-pre-wrap overflow-x-auto max-h-48 custom-scrollbar">
+                {ocr.raw_text || 'No text extracted'}
+              </pre>
+            </div>
+          )}
         </div>
 
-        {/* Collapsible Raw Text */}
-        {showRawText && (
-          <div className="mt-4 p-4 bg-gray-900 rounded-lg text-gray-100 text-xs font-mono overflow-x-auto whitespace-pre-wrap max-h-48 border border-gray-800">
-            <p className="text-gray-400 mb-1 border-b border-gray-700 pb-1 uppercase tracking-wider text-[10px]">
-              Raw OCR Buffer Output:
-            </p>
-            {ocr.raw_text ? ocr.raw_text : <span className="text-gray-500 italic">No text extracted</span>}
-          </div>
-        )}
-      </div>
-
-      {/* 4. MRZ & RULE VALIDATION SIDE-BY-SIDE */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* MRZ DETAILS */}
-        <div className="border rounded-xl p-6 bg-white shadow-sm space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b">
-            <div className="flex items-center gap-2">
-              <FileText className="w-5 h-5 text-indigo-600" />
-              <h3 className="text-lg font-bold text-gray-900">MRZ Verification</h3>
+        {/* MRZ & FORENSICS (Stacked) */}
+        <div className="space-y-6">
+          
+          {/* FORENSICS METERS */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-sm space-y-4">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-slate-200 flex items-center gap-2 border-b border-slate-800 pb-3">
+              <Fingerprint className="w-4 h-4 text-purple-500" /> Forensic Analysis
+            </h3>
+            
+            <div className="space-y-3">
+              {[
+                { label: 'Error Level Analysis (ELA)', val: tamper.signals?.ela_score || 0 },
+                { label: 'Copy-Move Detection', val: tamper.signals?.copy_move_score || 0 },
+                { label: 'Font Inconsistency', val: tamper.signals?.font_inconsistency_score || 0 }
+              ].map(sig => (
+                <div key={sig.label}>
+                  <div className="flex justify-between text-[11px] font-mono text-slate-400 mb-1">
+                    <span>{sig.label}</span>
+                    <span>{(sig.val * 100).toFixed(1)}%</span>
+                  </div>
+                  <div className="w-full bg-slate-950 h-1.5 rounded-full overflow-hidden border border-slate-800">
+                    <div 
+                      className={`h-full ${sig.val > 0.5 ? 'bg-red-500' : sig.val > 0.2 ? 'bg-amber-500' : 'bg-purple-500'}`}
+                      style={{ width: `${Math.max(2, sig.val * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+              
+              <div className="mt-4 pt-4 border-t border-slate-800 flex justify-between items-center">
+                <span className="text-xs text-slate-400 font-medium">Flagged Regions Detected</span>
+                <span className="px-2.5 py-1 bg-slate-950 border border-slate-800 rounded text-xs font-mono text-slate-300">
+                  {tamper.flagged_regions?.length || 0}
+                </span>
+              </div>
             </div>
-            <span
-              className={`text-xs px-2.5 py-1 rounded-full border font-semibold ${
-                mrz.mrz_present ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-100 text-gray-600 border-gray-200'
-              }`}
-            >
-              {mrz.mrz_present ? 'MRZ Detected' : 'No MRZ Detected'}
-            </span>
           </div>
 
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border text-sm">
-              <span className="font-medium text-gray-700">Checksum Validation</span>
-              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-semibold border ${getBadgeClass(mrz.mrz_present ? mrz.checksum_valid : null)}`}>
-                {mrz.mrz_present ? (mrz.checksum_valid ? 'Valid Checksum' : 'Checksum Failed') : 'N/A'}
-              </span>
+          {/* MRZ DATA */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-sm space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <h3 className="text-sm font-bold uppercase tracking-widest text-slate-200 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-indigo-500" /> MRZ Validation
+              </h3>
+              {getStatusBadge(mrz.mrz_present, 'DETECTED', 'NOT DETECTED')}
             </div>
 
-            {/* MRZ Cross-Check Items */}
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                Cross-Check with Visual OCR:
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {mrz.cross_check && Object.keys(mrz.cross_check).length > 0 ? (
-                  Object.entries(mrz.cross_check).map(([key, match]) => (
-                    <div
-                      key={key}
-                      className="p-2.5 rounded-lg border bg-gray-50/50 flex items-center justify-between text-xs"
-                    >
-                      <span className="capitalize text-gray-600">{key.replace(/_/g, ' ')}</span>
-                      {match ? (
-                        <CheckCircle className="w-4 h-4 text-green-600 shrink-0" />
-                      ) : (
-                        <XCircle className="w-4 h-4 text-red-500 shrink-0" />
-                      )}
+            {mrz.mrz_present ? (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center p-3 bg-slate-950 border border-slate-800 rounded-lg">
+                  <span className="text-xs text-slate-400 font-medium">Global Checksum</span>
+                  {getStatusBadge(mrz.checksum_valid)}
+                </div>
+                
+                {mrz.cross_check && Object.keys(mrz.cross_check).length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Visual Cross-Check</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {Object.entries(mrz.cross_check).map(([key, match]) => (
+                        <div key={key} className="flex justify-between items-center p-2 bg-slate-950 border border-slate-800 rounded text-xs">
+                          <span className="text-slate-400 capitalize">{key.replace(/_/g, ' ')}</span>
+                          {match ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> : <XCircle className="w-3.5 h-3.5 text-red-500" />}
+                        </div>
+                      ))}
                     </div>
-                  ))
-                ) : (
-                  <div className="col-span-2 text-xs text-gray-400 italic p-2 bg-gray-50 rounded border">
-                    No cross-check data available
                   </div>
                 )}
               </div>
-            </div>
-
-            {/* MRZ Parsed Fields */}
-            {mrz.mrz_fields && Object.keys(mrz.mrz_fields).length > 0 && (
-              <div className="pt-2">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                  Parsed MRZ Fields:
-                </p>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  {Object.entries(mrz.mrz_fields).map(([fieldKey, fieldVal]) => (
-                    <div key={fieldKey} className="p-2 bg-gray-50 rounded border">
-                      <span className="text-gray-500 block text-[11px] capitalize">{fieldKey.replace(/_/g, ' ')}</span>
-                      <span className="font-semibold text-gray-800 truncate block">{fieldVal || '—'}</span>
-                    </div>
-                  ))}
-                </div>
+            ) : (
+              <div className="flex items-center justify-center py-6 text-slate-500 text-sm font-mono italic">
+                Document does not contain a Machine Readable Zone
               </div>
             )}
           </div>
+
         </div>
-
-        {/* RULE VALIDATION */}
-        <div className="border rounded-xl p-6 bg-white shadow-sm space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-emerald-600" />
-              <h3 className="text-lg font-bold text-gray-900">Rule Validation</h3>
-            </div>
-            <span
-              className={`text-xs px-2.5 py-1 rounded-full border font-semibold ${
-                !rules.is_expired && rules.format_valid && rules.logic_valid
-                  ? 'bg-green-50 text-green-700 border-green-200'
-                  : 'bg-amber-50 text-amber-700 border-amber-200'
-              }`}
-            >
-              {!rules.is_expired && rules.format_valid && rules.logic_valid ? 'Rules Passed' : 'Flagged by Rules'}
-            </span>
-          </div>
-
-          <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-2">
-              <div className="p-3 bg-gray-50 rounded-lg border text-center">
-                <p className="text-[11px] text-gray-500 mb-1">Format Valid</p>
-                <span className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold border ${getBadgeClass(rules.format_valid)}`}>
-                  {rules.format_valid ? 'Valid' : 'Invalid'}
-                </span>
-              </div>
-              <div className="p-3 bg-gray-50 rounded-lg border text-center">
-                <p className="text-[11px] text-gray-500 mb-1">Logic Valid</p>
-                <span className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold border ${getBadgeClass(rules.logic_valid)}`}>
-                  {rules.logic_valid ? 'Valid' : 'Invalid'}
-                </span>
-              </div>
-              <div className="p-3 bg-gray-50 rounded-lg border text-center">
-                <p className="text-[11px] text-gray-500 mb-1">Expiry Status</p>
-                <span className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold border ${getBadgeClass(!rules.is_expired)}`}>
-                  {rules.is_expired ? 'Expired' : 'Active'}
-                </span>
-              </div>
-            </div>
-
-            {/* Rule Flags */}
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                Rule Checks & Observations:
-              </p>
-              {rules.flags && rules.flags.length > 0 ? (
-                <ul className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                  {rules.flags.map((flag, idx) => (
-                    <li key={idx} className="flex items-start gap-2 p-2 bg-amber-50/60 border border-amber-200 rounded text-xs text-amber-900">
-                      <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-                      <span>{flag}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="p-3 bg-green-50/60 border border-green-200 rounded-lg text-xs text-green-800 flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-green-600 shrink-0" />
-                  <span>All deterministic document rules satisfied without any flags.</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 5. FORENSICS & DATABASE DETAILS SIDE-BY-SIDE */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* TAMPER / FORENSICS SIGNALS */}
-        <div className="border rounded-xl p-6 bg-white shadow-sm space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b">
-            <div className="flex items-center gap-2">
-              <Fingerprint className="w-5 h-5 text-purple-600" />
-              <h3 className="text-lg font-bold text-gray-900">Forensics & Tampering</h3>
-            </div>
-            <span
-              className={`text-xs px-2.5 py-1 rounded-full border font-semibold ${
-                tamperSuspected ? 'bg-red-50 text-red-700 border-red-200' : 'bg-green-50 text-green-700 border-green-200'
-              }`}
-            >
-              Suspicion Score: {((tamper.suspicion_score || 0) * 100).toFixed(2)}%
-            </span>
-          </div>
-
-          <div className="space-y-3">
-            {/* Forensic Signals */}
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                Forensic Signal Analysis:
-              </p>
-              <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                <div className="p-2.5 bg-gray-50 rounded border">
-                  <p className="text-gray-500 text-[11px]">ELA Score</p>
-                  <p className="font-semibold text-gray-800 mt-0.5">
-                    {typeof tamper.signals?.ela_score === 'number'
-                      ? (tamper.signals.ela_score * 100).toFixed(1) + '%'
-                      : '0.0%'}
-                  </p>
-                </div>
-                <div className="p-2.5 bg-gray-50 rounded border">
-                  <p className="text-gray-500 text-[11px]">Copy-Move</p>
-                  <p className="font-semibold text-gray-800 mt-0.5">
-                    {typeof tamper.signals?.copy_move_score === 'number'
-                      ? (tamper.signals.copy_move_score * 100).toFixed(1) + '%'
-                      : '0.0%'}
-                  </p>
-                </div>
-                <div className="p-2.5 bg-gray-50 rounded border">
-                  <p className="text-gray-500 text-[11px]">Font Inconsistency</p>
-                  <p className="font-semibold text-gray-800 mt-0.5">
-                    {typeof tamper.signals?.font_inconsistency_score === 'number'
-                      ? (tamper.signals.font_inconsistency_score * 100).toFixed(1) + '%'
-                      : '0.0%'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Flagged Regions */}
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                Flagged Region Bounding Boxes ({tamper.flagged_regions?.length || 0}):
-              </p>
-              {tamper.flagged_regions && tamper.flagged_regions.length > 0 ? (
-                <div className="p-2.5 bg-gray-50 rounded border text-[11px] font-mono text-gray-600 max-h-24 overflow-y-auto">
-                  {tamper.flagged_regions.slice(0, 10).map((box, idx) => (
-                    <div key={idx}>
-                      Region {idx + 1}: [{box.join(', ')}]
-                    </div>
-                  ))}
-                  {tamper.flagged_regions.length > 10 && (
-                    <div className="text-gray-400 italic">
-                      + {tamper.flagged_regions.length - 10} more regions detected
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="p-2.5 bg-green-50/60 border border-green-200 rounded text-xs text-green-800 flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-green-600 shrink-0" />
-                  <span>No suspicious tampering regions flagged on this document.</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* DATABASE / WATCHLIST AUDIT */}
-        <div className="border rounded-xl p-6 bg-white shadow-sm space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b">
-            <div className="flex items-center gap-2">
-              <Database className="w-5 h-5 text-teal-600" />
-              <h3 className="text-lg font-bold text-gray-900">Database & Watchlist Audit</h3>
-            </div>
-            <span
-              className={`text-xs px-2.5 py-1 rounded-full border font-semibold ${
-                db.status === 'clean' || db.status === 'not_found'
-                  ? 'bg-green-50 text-green-700 border-green-200'
-                  : 'bg-red-50 text-red-700 border-red-200'
-              }`}
-            >
-              Status: {(db.status || 'unknown').replace(/_/g, ' ')}
-            </span>
-          </div>
-
-          <div className="space-y-3">
-            <div className="p-3 bg-gray-50 rounded-lg border text-sm flex items-center justify-between">
-              <span className="font-medium text-gray-700">Immigration Watchlist Status</span>
-              <span className="font-semibold capitalize text-gray-900">
-                {(db.status || 'not_found').replace(/_/g, ' ')}
-              </span>
-            </div>
-
-            {/* Record Metadata Display (safe without exposing sensitive internals) */}
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                Sanctions & Database Metadata:
-              </p>
-              {db.record_meta && Object.keys(db.record_meta).length > 0 ? (
-                <div className="p-3 bg-gray-50 rounded-lg border space-y-1 text-xs">
-                  {Object.entries(db.record_meta).map(([metaKey, metaVal]) => (
-                    <div key={metaKey} className="flex justify-between border-b border-gray-200/60 pb-1">
-                      <span className="font-medium text-gray-600 capitalize">{metaKey.replace(/_/g, ' ')}:</span>
-                      <span className="text-gray-900 font-mono">
-                        {typeof metaVal === 'object' ? JSON.stringify(metaVal) : String(metaVal)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-3 bg-gray-50 rounded-lg border text-xs text-gray-600 flex items-center gap-2">
-                  <Search className="w-4 h-4 text-gray-400 shrink-0" />
-                  <span>No watchlist or criminal database records returned for this subject.</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 6. SESSION AUDIT FOOTER */}
-      <div className="p-4 bg-gray-100/70 border border-gray-200 rounded-xl text-center text-xs text-gray-500 font-mono">
-        Audit Session ID: <span className="font-semibold text-gray-700">{result.session_id || 'N/A'}</span>
       </div>
     </div>
   );
