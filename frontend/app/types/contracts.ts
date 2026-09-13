@@ -41,7 +41,7 @@ export interface FaceVerificationOutput {
 
 export interface DBCheckOutput {
   status: string;
-  record_meta: Record<string, any> | null;
+  record_meta: Record<string, unknown> | null;
 }
 
 export interface RiskEngineOutput {

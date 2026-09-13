@@ -48,6 +48,7 @@ coverage.xml
 uploads/
 temp/
 tmp/
+storage/
 
 # Model weights / large binaries
 *.pt

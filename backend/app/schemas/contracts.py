@@ -79,3 +79,16 @@ class RiskEngineOutput(BaseModel):
     risk_band: str                # "low" | "medium" | "high"
     reasons: List[str]
     contributions: Dict[str, float]  # per-module weighted contribution, for the "why" UI
+
+
+# Pipeline Orchestrator → API / Frontend
+class ScreeningResult(BaseModel):
+    session_id: str
+    classifier: ClassifierOutput
+    ocr: OCROutput
+    mrz: MRZOutput
+    rules: RuleValidationOutput
+    tamper: TamperOutput
+    face: FaceVerificationOutput
+    db: DBCheckOutput
+    risk: RiskEngineOutput

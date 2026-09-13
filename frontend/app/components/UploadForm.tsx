@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, ChangeEvent } from 'react';
-import axios from 'axios';
 import { Upload, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { ScreeningResult } from '@/app/types/contracts';
 
@@ -56,25 +55,34 @@ export default function UploadForm({ onResult, onError }: UploadFormProps) {
       formData.append('doc_file', docFile);
       formData.append('live_photo', livePhoto);
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
 
-      const response = await axios.post<ScreeningResult>(`${apiUrl}/screen`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        timeout: 60000,
+      const response = await fetch(`${apiUrl}/screen`, {
+        method: 'POST',
+        body: formData,
       });
 
-      onResult(response.data);
+      if (!response.ok) {
+        let errorDetail = `Server error (${response.status})`;
+        try {
+          const errData = await response.json();
+          if (errData && errData.detail) {
+            errorDetail =
+              typeof errData.detail === 'string'
+                ? errData.detail
+                : JSON.stringify(errData.detail);
+          }
+        } catch {
+          // fallback to status code message
+        }
+        throw new Error(errorDetail);
+      }
+
+      const result: ScreeningResult = await response.json();
+      onResult(result);
     } catch (err: unknown) {
       let errorMessage = 'An error occurred during document screening. Please check backend connection.';
-      if (axios.isAxiosError(err)) {
-        errorMessage =
-          err.response?.data?.detail ||
-          err.response?.data?.message ||
-          err.message ||
-          errorMessage;
-      } else if (err instanceof Error) {
+      if (err instanceof Error) {
         errorMessage = err.message;
       }
       onError(errorMessage);
@@ -132,6 +140,7 @@ export default function UploadForm({ onResult, onError }: UploadFormProps) {
                   Supports JPEG, JPG, PNG
                 </span>
                 <input
+                  id="doc-file-input"
                   type="file"
                   accept="image/jpeg, image/png, image/jpg"
                   className="hidden"
@@ -191,6 +200,7 @@ export default function UploadForm({ onResult, onError }: UploadFormProps) {
                   Supports JPEG, JPG, PNG
                 </span>
                 <input
+                  id="live-photo-input"
                   type="file"
                   accept="image/jpeg, image/png, image/jpg"
                   className="hidden"
@@ -208,6 +218,7 @@ export default function UploadForm({ onResult, onError }: UploadFormProps) {
       {/* Submit Action */}
       <div className="flex justify-center pt-2">
         <button
+          id="screen-submit-btn"
           type="submit"
           disabled={!docFile || !livePhoto || isUploading}
           className={`flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-semibold text-white shadow-md transition-all ${

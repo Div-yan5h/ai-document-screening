@@ -50,12 +50,32 @@ Each module exposes **one function**: `def run(input) -> ModuleOutput`. The orch
 ```bash
 # Create virtual environment
 python -m venv venv
-source venv/bin/activate  # macOS/Linux
+source venv/bin/activate  # macOS/Linux (or venv\Scripts\activate on Windows)
 
 # Install dependencies
 pip install -r backend/requirements.txt
 ```
 
+## Running the Application
+
+> **Note**: The backend must be running before performing document screening in the frontend.
+
+### 1. Start the Backend (FastAPI)
+```bash
+python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+```
+Backend API will run at `http://127.0.0.1:8000` (Health check: `http://127.0.0.1:8000/health`).
+
+### 2. Start the Frontend (Next.js)
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Then open your browser at:
+`http://localhost:3000`
+
 ## Build Spec
 
 See [`sih_build_spec.md`](sih_build_spec.md) for the complete build specification.
+
