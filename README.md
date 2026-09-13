@@ -1,6 +1,6 @@
 # AI Document Screening System
 
-**SIH 2026 — Team AIGES**
+**SIH 2026 — Team AEGIS**
 
 An AI-powered document screening pipeline for immigration officers that verifies travel documents (passports, visas, ID cards) through multi-stage analysis: document classification, OCR, MRZ verification, rule validation, tamper detection, face matching, and risk scoring.
 
